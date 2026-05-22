@@ -1,63 +1,237 @@
-# Face Recognition Tracker 🎯
+Project Hirohito-- Smart Target Tracking System 
+Overview
+Smart Target Tracker 2 are advanced real-time tactical target tracking systems designed for persistent human target acquisition using live IP camera, RTSP, or drone video streams.
 
-A real-time face recognition system that locks onto a specific target face using your camera.
-Unknown faces are highlighted in **green**, and the target face turns **red** upon recognition.
+The system combines:
 
----
+YOLOv8 for real-time human detection
+DeepSORT for multi-object tracking
+Appearance-based target re-identification
+Persistent tactical target lock
+Low-latency IP stream synchronization
+Automatic stream recovery
+Version 7 introduced a redesigned persistent target tracking architecture that enables:
 
-## Requirements
+Reliable click-to-lock targeting
+Stable target persistence after disappearance
+Re-identification after target re-entry
+Tactical single-target visualization mode
+Background multi-person analysis without visual clutter
+Version 7.2 extends the system further by improving:
 
-- Python 3.13+
-- Webcam or Arduino camera module
+ESP32/IP camera stream stability
+Automatic stream reconnection
+MJPEG stream handling
+Real-world operational reliability
+Low-latency recovery after frame loss
+This project is part of Project Silent Reaper, developed under the Skynet-Biogenics initiative.
 
-## Installation
-```bash
-pip install deepface opencv-python numpy tf-keras
-```
+Key Features
+Real-time human detection using YOLOv8
+DeepSORT multi-object tracking
+Persistent single-target tactical lock
+Live IP camera / RTSP stream support
+Click-to-lock target acquisition
+Automatic target re-identification
+Low-latency threaded processing pipeline
+Tactical visualization mode
+Background multi-target analysis
+Automatic stream reconnect system
+Apple Silicon GPU acceleration support
+Drone-compatible architecture
+Project Structure
+Project-Silent-Reaper/
+│
+├── Tracker/
+│   └── smart target tracker ver 7/
+│       ├── smart_target_tracker7.py
+│       ├── smart_target_tracker7.2.py
+│       └── README.md
+│
+└── README.md
+Source Code
+Version 7
+Persistent tactical target tracking implementation:
 
-## Setup
+Tracker/smart target tracker ver 7/smart_target_tracker7.py
+GitHub:
 
-1. Place a clear frontal photo of your target person in the project folder
-2. Rename it to `target_face.jpg`
-3. Update the path in `tracker.py` if needed:
-```python
-   TARGET_IMAGE_PATH = r"C:\Users\HP\OneDrive\Desktop\DRONE\final year\target_face.jpg"
-```
+https://github.com/Skynet-Biogenics/Project-Silent-Reaper/blob/main/Tracker/smart%20target%20tracker%20ver%207/smart_target_tracker7.py
 
-## Usage
-```bash
-python tracker.py
-```
+Version 7.2
+Enhanced stability and auto-reconnect implementation:
 
-## Controls
+Tracker/smart target tracker ver 7/smart_target_tracker7.2.py
+GitHub:
 
-| Key | Action |
-|-----|--------|
-| `Q` | Quit |
-| `S` | Save screenshot |
+https://github.com/Skynet-Biogenics/Project-Silent-Reaper/blob/main/Tracker/smart%20target%20tracker%20ver%207/smart_target_tracker7.2.py
 
-## How It Works
+Version Differences
+Feature	V7	V7.2
+Persistent target lock	✅	✅
+Automatic re-identification	✅	✅
+Tactical single-target display	✅	✅
+Background target analysis	✅	✅
+Stream auto-reconnect	❌	✅
+Improved ESP32 stability	❌	✅
+MJPEG stream recovery	❌	✅
+IP stream resilience	Medium	High
+System Architecture
+The tracking pipeline works as follows:
 
-1. OpenCV detects all faces in the frame every tick
-2. DeepFace compares each detected face against `target_face.jpg`
-3. Match below threshold → **RED** box + confidence %
-4. No match → **GREEN** box
+IP Camera / Drone Feed
+            ↓
+Frame Acquisition
+            ↓
+YOLOv8 Human Detection
+            ↓
+DeepSORT Tracking
+            ↓
+Target Selection (Mouse Click)
+            ↓
+HSV Appearance Embedding
+            ↓
+Target Re-Identification
+            ↓
+Persistent Tactical Target Lock
+Requirements
+Python 3.9+
+IP Camera / RTSP Stream / Drone Camera
+macOS / Linux / Windows
+Required Python libraries:
 
-## Configuration
+ultralytics
+deep_sort_realtime
+opencv-python
+numpy
+Installation
+Clone the repository:
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `TARGET_IMAGE_PATH` | `target_face.jpg` | Path to target photo |
-| `MODEL_NAME` | `VGG-Face` | Recognition model (`Facenet`, `ArcFace`) |
-| `CAMERA_INDEX` | `0` | Camera source (0 = default webcam) |
+git clone https://github.com/Skynet-Biogenics/Project-Silent-Reaper.git
+cd Project-Silent-Reaper
+Create a virtual environment (recommended):
 
-## Arduino Integration
+python3 -m venv env
+source env/bin/activate
+Install dependencies:
 
-Set `USE_ARDUINO = True` in `tracker.py` and update `SERIAL_PORT` to your COM port.
-The Arduino should stream JPEG frames over Serial bookended by markers `0xFF 0xAA` (start) and `0xFF 0xBB` (end).
+python3 -m pip install ultralytics deep_sort_realtime opencv-python numpy
+Running the Tracker
+Navigate to the tracker directory:
 
-## Notes
+cd Tracker/"smart target tracker ver 7"
+Run Version 7:
 
-- First run downloads the VGG-Face model (~500MB, one time only)
-- TensorFlow warnings on startup are harmless and can be ignored
-- For better accuracy, use a well-lit frontal photo as your target image
+python3 smart_target_tracker7.py
+Run Version 7.2:
+
+python3 smart_target_tracker7.2.py
+Tactical Tracking Workflow
+Before Target Lock
+All detected persons are displayed using green tracking boxes
+YOLO continuously analyzes all visible persons
+DeepSORT assigns persistent tracking IDs
+Operator can manually select a target using mouse click
+After Target Lock
+Once a target is selected:
+
+The system enters persistent tactical tracking mode
+All green boxes disappear
+Only the selected target remains visible
+The selected target is displayed using a red tactical lock box
+Background analysis continues silently
+Target Re-Identification
+If the target:
+
+leaves the camera frame,
+becomes temporarily occluded,
+or disappears due to tracking interruption,
+the system continues comparing appearance embeddings in the background.
+
+When the target reappears:
+
+the target is automatically re-identified,
+the tactical lock is restored,
+and the red target box reappears automatically.
+V7.2 Stability Improvements
+Version 7.2 introduces major stability improvements for ESP32/IP camera systems.
+
+Added Features
+Automatic stream reconnection
+Better MJPEG handling
+Improved IP stream recovery
+Reduced crash frequency
+Improved frame-loss tolerance
+More stable long-duration operation
+Stream Recovery Logic
+If the stream disconnects temporarily:
+
+Frame lost → Auto reconnect → Continue tracking
+This allows the system to recover automatically without restarting the program.
+
+Tactical Visualization Mode
+State	Display
+Before lock	Green boxes on all persons
+After lock	Only locked target visible
+Target missing	"SEARCHING TARGET..."
+Target reappears	Red target lock restored
+Re-Identification Mechanism
+The tracker uses runtime appearance-based target memory.
+
+Process:
+
+The selected target is converted into an HSV appearance embedding.
+The embedding becomes the temporary runtime target signature.
+Every visible person is continuously compared against the stored signature.
+The best similarity match is selected.
+If similarity exceeds the threshold, target lock is restored automatically.
+Unlike traditional systems, this architecture does not require a pre-trained identity dataset for runtime operation.
+
+Camera Optimization
+Low-latency optimizations include:
+
+Reduced frame resolution
+Threaded YOLO inference
+Camera buffer reduction
+Lightweight YOLOv8n model usage
+Apple Silicon acceleration support
+Improved ESP32 compatibility
+Recommended ESP32 settings:
+
+Setting	Recommended
+Resolution	QVGA
+Quality	12–20
+WiFi	Strong 2.4GHz signal
+Performance
+Typical performance on Apple Silicon systems:
+
+Resolution	FPS
+416 × 320	~25–30 FPS
+640 × 480	~15–20 FPS
+Performance depends on:
+
+Network stability
+Camera stream quality
+Hardware acceleration
+Number of visible persons
+Limitations
+Current limitations include:
+
+HSV histogram ReID remains appearance-based
+Similar clothing may reduce accuracy
+Severe lighting changes can affect re-identification
+Heavy occlusion may temporarily break tracking
+Fast camera motion may reduce stability
+Future Improvements
+Planned upgrades include:
+
+Deep learning ReID models (OSNet / FastReID)
+Autonomous drone following
+PTZ camera integration
+Multi-camera tracking
+CUDA acceleration
+Edge AI deployment
+Kalman trajectory prediction
+Real-time telemetry overlay
+Target priority classification
+Long-range tracking optimization
