@@ -42,21 +42,21 @@ The system implements a sophisticated tracking pipeline that enables:
 
 ```mermaid
 graph TD
-    A[IP Camera/Drone Feed] --> B[Frame Acquisition]
+    A[IP Camera / Drone Feed] --> B[Frame Acquisition]
     B --> C{Preprocessing}
     C --> D[YOLOv8 Human Detection]
     D --> E[DeepSORT Multi-Object Tracking]
-    E --> F[Target Selection<br/>(Mouse Click)]
-    F --> G[HSV Appearance<br/>Embedding]
-    G --> H[Target Re-Identification<br/>Module]
-    H --> I[Persistent Tactical<br/>Target Lock]
+    E --> F[Target Selection - Mouse Click]
+    F --> G[HSV Appearance Embedding]
+    G --> H[Target Re-Identification Module]
+    H --> I[Persistent Tactical Target Lock]
     I --> J[Display Output]
-    J --> K[User Interface<br/>with FPS Counter]
+    J --> K[User Interface - FPS Counter]
     
     subgraph Re-ID Module
-        H --> L[Appearance Memory<br/>Management]
-        H --> M[Similarity<br/>Thresholding]
-        H --> N[Face Detection<br/>Bonus (V9)]
+        H --> L[Appearance Memory Management]
+        H --> M[Similarity Thresholding]
+        H --> N[Face Detection Bonus - V9]
     end
     
     style A fill:#f9f,stroke:#333
@@ -162,8 +162,8 @@ python update.py
 sequenceDiagram
     participant Camera as IP Camera/Drone
     participant Acq as Frame Acquisition
-    participant Preprocess as Preprocessing<br/>(Resize, Enhance)
-    participant Yolo as YOLOv8 Thread<br/>(Person Detection)
+    participant Preprocess as Preprocessing - Resize, Enhance
+    participant Yolo as YOLOv8 Thread - Person Detection
     participant DeepSORT as DeepSORT Tracker
     participant ReID as Re-ID Module
     participant Display as Display Output
@@ -176,7 +176,7 @@ sequenceDiagram
     DeepSORT->>ReID: Tracked Objects
     ReID->>Display: Target Status
     Display->>User: Visual Feedback
-    User->>ReID: Mouse Click<br/>(Target Selection)
+    User->>ReID: Mouse Click - Target Selection
     ReID->>DeepSORT: Selected Target ID
     DeepSORT->>ReID: Tracking Updates
     ReID->>Display: Lock Status Updates
@@ -192,7 +192,7 @@ sequenceDiagram
 graph LR
     A[Target Selected] --> B[Extract HSV Embedding]
     B --> C[Store in Memory Buffer]
-    C --> D[Continuous Comparison<br/>with New Detections]
+    C --> D[Compare with New Detections]
     D --> E{Similarity > Threshold?}
     E -->|Yes| F[Target Re-Identified]
     E -->|No| G[Continue Searching]
@@ -201,7 +201,7 @@ graph LR
     G --> C
     
     subgraph Memory Management
-        C --> I[Adaptive Memory<br/>(Max 40 entries)]
+        C --> I[Adaptive Memory - Max 40]
         I --> J[FIFO Buffer Management]
     end
 ```
