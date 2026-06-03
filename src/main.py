@@ -294,95 +294,79 @@ class TelemetryOverlay:
 # ─────────────────────────────────────────────────────────────────────────────
 # Minimal HUD helpers (inline, no class overhead)
 # ─────────────────────────────────────────────────────────────────────────────
-FONT    = cv2.FONT_HERSHEY_DUPLEX
-FONT_SM = cv2.FONT_HERSHEY_SIMPLEX
-
-def _panel(frame, x, y, w, h, alpha=0.55):
-    y1, y2 = max(0,y), min(frame.shape[0], y+h)
-    x1, x2 = max(0,x), min(frame.shape[1], x+w)
-    if y2 <= y1 or x2 <= x1: return
-    roi = frame[y1:y2, x1:x2]
-    frame[y1:y2, x1:x2] = cv2.addWeighted(roi, 1-alpha,
-                               np.zeros_like(roi), alpha, 0)
-
-def _text(frame, text, x, y, color=WHITE, scale=0.5, thick=1):
-    cv2.putText(frame, text, (x+1,y+1), FONT, scale, BLACK, thick+1, cv2.LINE_AA)
-    cv2.putText(frame, text, (x,  y  ), FONT, scale, color, thick,   cv2.LINE_AA)
-
-def _text_sm(frame, text, x, y, color=WHITE, scale=0.45, thick=1):
-    cv2.putText(frame, text, (x+1,y+1), FONT_SM, scale, BLACK, thick+1, cv2.LINE_AA)
-    cv2.putText(frame, text, (x,  y  ), FONT_SM, scale, color, thick,   cv2.LINE_AA)
-
-def draw_corner_box(frame, x, y, w, h, color, thick=2, r=0.22):
-    L = int(min(w,h)*r)
-    for (cx,cy,dx1,dy1,dx2,dy2) in [
-        (x,   y,    L,0,  0,L), (x+w, y,  -L,0, 0, L),
-        (x,   y+h,  L,0,  0,-L),(x+w, y+h,-L,0, 0,-L)]:
-        cv2.line(frame,(cx,cy),(cx+dx1,cy+dy1),color,thick)
-        cv2.line(frame,(cx,cy),(cx+dx2,cy+dy2),color,thick)
-
-def draw_top_bar(frame, fps, badges, lock_state):
-    h, w = frame.shape[:2]
-    _panel(frame, 0, 0, w, 36, 0.65)
-    # FPS left
-    _text(frame, f"FPS {fps:.1f}", 10, 26, GREEN, 0.55, 2)
-    # State centre
-    state_colors = {"detect": CYAN, "tracked": RED, "search": ORANGE}
-    sc = state_colors.get(lock_state, WHITE)
-    state_str = lock_state.upper()
-    sw, _ = cv2.getTextSize(state_str, FONT, 0.6, 2)[0]
-    _text(frame, state_str, w//2 - sw//2, 26, sc, 0.6, 2)
-    # Badges right
-    if badges:
-        bs = " | ".join(badges)
-        bw, _ = cv2.getTextSize(bs, FONT_SM, 0.45, 1)[0]
-        _text_sm(frame, bs, w - bw - 14, 26, YELLOW, 0.45, 1)
-
 def draw_drone_cmd(frame, cmd: DroneCommand):
-    if cmd is None: return
+    if cmd is None:
+        return
+
     h, w = frame.shape[:2]
+
     direction_arrows = {
-        "left":      "◄ LEFT",
-        "right":     "RIGHT ►",
-        "forward":   "▲ FWD",
-        "back":      "▼ BACK",
-        "center":    "● CENTER",
-        "pan_left":  "↺ PAN LEFT",
+        "left": "◄ LEFT",
+        "right": "RIGHT ►",
+        "forward": "▲ FWD",
+        "back": "▼ BACK",
+        "center": "● CENTER",
+        "pan_left": "↺ PAN LEFT",
         "pan_right": "↻ PAN RIGHT",
         "searching": "⟳ SEARCHING",
     }
+
     label = direction_arrows.get(cmd.direction, cmd.direction.upper())
-    mag_pct = f"  {int(cmd.magnitude*100)}%"
+
+    mag_pct = f" {int(cmd.magnitude * 100)}%"
     full = label + (mag_pct if cmd.magnitude > 0 else "")
+
     tw, th = cv2.getTextSize(full, FONT_SM, 0.65, 2)[0]
-    x = w//2 - tw//2
+
+    x = w // 2 - tw // 2
     y = h - 18
-    _panel(frame, x-8, y-th-8, tw+16, th+12, 0.65)
+
+    _panel(frame, x - 8, y - th - 8, tw + 16, th + 12, 0.65)
+
     colors = {
-        "left":"#left","right":"#right","forward":"#fwd","back":"#back",
-        "center":"#ctr","pan_left":"#pan","pan_right":"#pan","searching":"#src"
+        "left": "#left",
+        "right": "#right",
+        "forward": "#fwd",
+        "back": "#back",
+        "center": "#ctr",
+        "pan_left": "#pan",
+        "pan_right": "#pan",
+        "searching": "#src",
     }
-    col_map = {"#left":CYAN,"#right":CYAN,"#fwd":GREEN,"#back":ORANGE,
-               "#ctr":GREEN,"#pan":YELLOW,"#src":WHITE}
-    col = col_map.get(colors.get(cmd.direction,"#src"), WHITE)
-    cv2.putText(frame, full, (x+1,y+1), FONT_SM, 0.65, BLACK,   3, cv2.LINE_AA)
-    cv2.putText(frame, full, (x,  y  ), FONT_SM, 0.65, col,     2, cv2.LINE_AA)
 
-def draw_search_overlay(frame, flash_tick):
-    h, w = frame.shape[:2]
-    blink = (flash_tick // 15) % 2 == 0
-    if blink:
-        overlay = frame.copy()
-        cv2.rectangle(overlay, (0,0), (w,h), (0,0,80), -1)
-        cv2.addWeighted(overlay, 0.12, frame, 0.88, 0, frame)
-    msg = "⟳  SEARCHING FOR TARGET"
-    tw, th = cv2.getTextSize(msg, FONT_SM, 0.75, 2)[0]
-    x = w//2 - tw//2
-    y = h//2
-    _panel(frame, x-12, y-th-10, tw+24, th+16, 0.7)
-    cv2.putText(frame, msg, (x+1,y+1), FONT_SM, 0.75, BLACK,  3, cv2.LINE_AA)
-    cv2.putText(frame, msg, (x,  y  ), FONT_SM, 0.75, ORANGE, 2, cv2.LINE_AA)
+    col_map = {
+        "#left": CYAN,
+        "#right": CYAN,
+        "#fwd": GREEN,
+        "#back": ORANGE,
+        "#ctr": GREEN,
+        "#pan": YELLOW,
+        "#src": WHITE,
+    }
 
+    col = col_map.get(colors.get(cmd.direction, "#src"), WHITE)
+
+    cv2.putText(
+        frame,
+        full,
+        (x + 1, y + 1),
+        FONT_SM,
+        0.65,
+        BLACK,
+        3,
+        cv2.LINE_AA,
+    )
+
+    cv2.putText(
+        frame,
+        full,
+        (x, y),
+        FONT_SM,
+        0.65,
+        col,
+        2,
+        cv2.LINE_AA,
+    )
 # ─────────────────────────────────────────────────────────────────────────────
 # Per-track drawing
 # ─────────────────────────────────────────────────────────────────────────────
