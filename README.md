@@ -1,308 +1,224 @@
-<div align="center">
+# ESP32-S3 Drone Camera — Face Tracking System
 
-# ArdDrone — Smart Target Tracking System
-
-**v1.0.0** — *An advanced real-time tactical target tracking system for drone and IP camera applications*
-
-[![Python](https://img.shields.io/badge/Python-3.9+-3776AB?style=flat&logo=python&logoColor=white)](https://python.org)
-[![YOLOv8](https://img.shields.io/badge/YOLOv8-Detection-009688?style=flat&logo=opencv&logoColor=white)](https://ultralytics.com/yolov8)
-[![DeepSORT](https://img.shields.io/badge/DeepSORT-Tracking-FC6D26?style=flat&logo=opencv&logoColor=white)](https://github.com/nwojke/deep_sort)
-[![OpenCV](https://img.shields.io/badge/OpenCV-Computer_Vision-5C3EE8?style=flat&logo=opencv&logoColor=white)](https://opencv.org)
-[![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+A real-time face detection, multi-person tracking, and drone command system built on a **Seeed Studio XIAO ESP32-S3** camera stream. Uses ByteTrack-style tracking with face re-identification to maintain stable IDs across occlusions, and outputs directional drone commands based on a locked target's position in the frame.
 
 ---
 
-</div>
+## Features
 
-## Table of Contents
-- [Overview](#overview)
-- [System Architecture](#system-architecture)
-- [Key Features](#key-features)
-- [Installation](#installation)
-- [Usage](#usage)
-- [How It Works](#how-it-works)
-- [Project Structure](#project-structure)
-- [Performance](#performance)
-- [Limitations](#limitations)
-- [Future Improvements](#future-improvements)
-- [License](#license)
+- **Multi-person tracking with stable IDs** — ByteTrack-style IoU + Kalman filter assigns each person a persistent ID that survives brief occlusions
+- **Face embedding memory (re-ID)** — LBP histogram gallery per track; when a person re-enters frame, they get the same ID they had before
+- **Click-to-lock target** — click directly on any face in the video window to designate it as the target
+- **Key-to-lock target** — press `0`–`9` to lock the Nth detected face
+- **Drone command output** — live directional signals (`left`, `right`, `forward`, `back`, `center`, `pan_left`, `pan_right`) printed to the terminal and overlaid on the feed
+- **Search mode** — when the target is lost, the system enters a panning search pattern and auto re-acquires when the target returns
+- **QR code reader**, **motion detection**, **telemetry overlay**, **snapshot**, **video recording**, **frame rotation**, **grid/crosshair overlays**
+- **Self-healing stream** — background capture thread auto-reconnects on drop
 
-## Overview
+---
 
-ArdDrone is an advanced real-time tactical target tracking system designed for persistent human target acquisition using live IP camera, RTSP, or drone video streams. The system combines state-of-the-art computer vision techniques to provide reliable target locking and re-identification capabilities.
+## File Structure
 
-The system implements a sophisticated tracking pipeline that enables:
-- Reliable click-to-lock targeting
-- Stable target persistence after disappearance
-- Re-identification after target re-entry
-- Tactical single-target visualization mode
-- Background multi-person analysis without visual clutter
-
-## System Architecture
-
-```mermaid
-graph TD
-    A[IP Camera / Drone Feed] --> B[Frame Acquisition]
-    B --> C{Preprocessing}
-    C --> D[YOLOv8 Human Detection]
-    D --> E[DeepSORT Multi-Object Tracking]
-    E --> F[Target Selection - Mouse Click]
-    F --> G[HSV Appearance Embedding]
-    G --> H[Target Re-Identification Module]
-    H --> I[Persistent Tactical Target Lock]
-    I --> J[Display Output]
-    J --> K[User Interface - FPS Counter]
-    
-    subgraph Re-ID Module
-        H --> L[Appearance Memory Management]
-        H --> M[Similarity Thresholding]
-        H --> N[Face Detection Bonus - V9]
-    end
-    
-    style A fill:#f9f,stroke:#333
-    style I fill:#ff9,stroke:#333
-    style J fill:#9f9,stroke:#333
+```
+drone_camera/
+├── config.py          ← your ESP32's IP address (you create this)
+├── main.py            ← main viewer, UI, and drone command logic
+├── tracker.py         ← ByteTracker, FaceEmbedder, DroneCommander, TargetLockManager
+├── snapshots/         ← auto-created; stores saved snapshots
+└── recordings/        ← auto-created; stores video recordings
 ```
 
-## Key Features
+---
 
-### Core Capabilities
-- **Real-time Human Detection**: Utilizes YOLOv8n for fast and accurate person detection
-- **Multi-Object Tracking**: Employs DeepSORT algorithm for robust tracking with unique ID assignment
-- **Persistent Target Lock**: Maintains lock on selected target even when temporarily obscured
-- **Appearance-Based Re-Identification**: Uses HSV histogram comparison for target recovery
-- **Low-Latency Processing**: Optimized pipeline with threaded YOLO inference and buffer management
-- **Tactical Visualization**: Clean interface showing only locked target or search status
+## Requirements
 
-### Advanced Features (V9 - update.py)
-- **Automatic Stream Reconnection**: Recovers from network interruptions without manual restart
-- **Face Detection Bonus**: Enhances re-identification accuracy using Haar cascades
-- **Adaptive Memory System**: Maintains rolling buffer of target appearances for improved recognition
-- **Image Enhancement**: Applies CLAHE for better performance in varying lighting conditions
-- **FPS & Memory Monitoring**: Real-time performance metrics displayed in UI
+### Hardware
+- Seeed Studio XIAO ESP32-S3 Sense (or any ESP32-CAM streaming MJPEG over HTTP)
+- Board powered and connected to the same WiFi network as your computer
 
-### User Interaction
-- **Click-to-Lock**: Simple mouse click interface for target selection
-- **Visual Feedback**: Clear color coding (green=tracking, red=locked, searching text)
-- **ID Display**: Shows track IDs for all visible targets
-- **Exit Control**: Escape key for clean shutdown
+### Software
+- Ubuntu Linux (tested on 22.04 / 24.04)
+- Python 3.10+
+- OpenCV with contrib modules
+- NumPy
+
+---
 
 ## Installation
 
-### Prerequisites
-- Python 3.9 or higher
-- IP Camera / RTSP Stream / Drone Camera source
-- Compatible OS: macOS / Linux / Windows
-
-### Step-by-Step Setup
-
-1. **Clone the repository**:
-   ```bash
-   git clone <repository-url>
-   cd ard_drone
-   ```
-
-2. **Create and activate virtual environment** (recommended):
-   ```bash
-   python3 -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
-   ```
-
-3. **Install dependencies**:
-   ```bash
-   pip install -r requirements.txt
-   ```
-   
-   *Alternatively, the update.py script includes auto-installation:*
-   ```bash
-   python src/update.py
-   ```
-
-4. **Required Python packages**:
-   - `ultralytics` (YOLOv8 implementation)
-   - `deep_sort_realtime` 
-   - `opencv-python`
-   - `numpy`
-
-## Usage
-
-### Basic Tracking (tracker.py)
+**1. Create the project folder and enter it**
 ```bash
-cd src
-python tracker.py
+mkdir drone_camera && cd drone_camera
 ```
 
-### Enhanced Tracking V9 (update.py)
+**2. Place the downloaded files**
 ```bash
-cd src
-python update.py
+mv ~/Downloads/main.py .
+mv ~/Downloads/tracker.py .
 ```
 
-### Operation Workflow
-1. Upon startup, the system connects to your IP camera stream
-2. All detected persons appear with green bounding boxes and ID labels
-3. Click on any person with your mouse to select them as the target
-4. The system enters tactical tracking mode:
-   - All green boxes disappear
-   - Only the selected target remains visible with a red bounding box
-   - "TARGET LOCK" label appears above the target
-5. If the target leaves the frame:
-   - Display shows "SEARCHING TARGET..." message
-   - System continues background re-identification attempts
-6. When target reappears:
-   - Automatic re-identification occurs if appearance matches
-   - Tactical lock is restored with red box and label
-7. Press ESC to exit the application
+**3. Create `config.py`** — set your ESP32's IP address here
+```bash
+cat > config.py << 'EOF'
+ESP32_IP = "http://192.168.1.8"   # ← change to your ESP32's actual IP
+EOF
+```
+
+> **Finding your ESP32's IP:** open the Arduino/PlatformIO Serial Monitor while the board boots — it prints its IP. Alternatively run:
+> ```bash
+> sudo arp-scan --localnet | grep -i esp
+> ```
+
+**4. Install Python dependencies**
+```bash
+pip install opencv-contrib-python numpy
+```
+On Ubuntu 24+ if you get an "externally managed" error:
+```bash
+pip install opencv-contrib-python numpy --break-system-packages
+```
+
+**5. Verify the board is reachable**
+```bash
+curl http://192.168.1.8/           # should stream raw JPEG bytes
+curl http://192.168.1.8/telemetry  # should return JSON
+```
+
+**6. Run**
+```bash
+python main.py
+```
+
+---
+
+## Controls
+
+Printed to the terminal on every launch. Quick reference:
+
+| Key / Action | What it does |
+|---|---|
+| **Click** on a face | Lock that face as the target |
+| `0` – `9` | Lock the Nth visible face as the target |
+| `u` | Unlock target, return to DETECT mode |
+| `f` | Toggle face detection + tracking overlay |
+| `z` | Toggle QR code reader |
+| `m` | Toggle motion detection |
+| `t` | Toggle telemetry overlay (heap, RSSI, uptime, temp) |
+| `o` | Rotate frame 90° clockwise (cycles 0 / 90 / 180 / 270) |
+| `g` | Toggle rule-of-thirds grid |
+| `c` | Toggle centre crosshair |
+| `s` | Save snapshot (from ESP32 `/snapshot` endpoint) |
+| `r` | Toggle video recording |
+| `1` | Set resolution: SVGA (800×600) |
+| `2` | Set resolution: UXGA (1600×1200) |
+| `l` | Toggle onboard LED on / off |
+| `L` (shift) | Flash LED 5 times |
+| `h` | Print controls to terminal |
+| `q` | Quit |
+
+---
 
 ## How It Works
 
-### Tracking Pipeline
-
-```mermaid
-sequenceDiagram
-    participant Camera as IP Camera/Drone
-    participant Acq as Frame Acquisition
-    participant Preprocess as Preprocessing - Resize, Enhance
-    participant Yolo as YOLOv8 Thread - Person Detection
-    participant DeepSORT as DeepSORT Tracker
-    participant ReID as Re-ID Module
-    participant Display as Display Output
-    participant User as Operator
-
-    Camera->>Acq: Video Stream
-    Acq->>Preprocess: Raw Frames
-    Preprocess->>Yolo: Processed Frames
-    Yolo->>DeepSORT: Detection Results
-    DeepSORT->>ReID: Tracked Objects
-    ReID->>Display: Target Status
-    Display->>User: Visual Feedback
-    User->>ReID: Mouse Click - Target Selection
-    ReID->>DeepSORT: Selected Target ID
-    DeepSORT->>ReID: Tracking Updates
-    ReID->>Display: Lock Status Updates
-    
-    loop Continuous Processing
-        Preprocess->>Yolo: Next Frame
-    end
-```
-
-### Re-Identification Process
-
-```mermaid
-graph LR
-    A[Target Selected] --> B[Extract HSV Embedding]
-    B --> C[Store in Memory Buffer]
-    C --> D[Compare with New Detections]
-    D --> E{Similarity > Threshold?}
-    E -->|Yes| F[Target Re-Identified]
-    E -->|No| G[Continue Searching]
-    F --> H[Update Memory Buffer]
-    H --> C
-    G --> C
-    
-    subgraph Memory Management
-        C --> I[Adaptive Memory - Max 40]
-        I --> J[FIFO Buffer Management]
-    end
-```
-
-## Project Structure
+### State Machine
 
 ```
-ard_drone/
-├── src/
-│   ├── tracker.py          # Basic tracking implementation
-│   └── update.py           # Enhanced V9 implementation with auto-reconnect
-├── docs/                   # Documentation files
-├── tests/                  # Test suites (to be implemented)
-├── assets/                 # Media files, configs, etc.
-├── README.md              # This file
-├── readme.md              # Legacy installation instructions
-└── .git/                  # Git repository data
+  ┌─────────┐   click / 0-9    ┌─────────┐   target lost   ┌────────┐
+  │ DETECT  │ ───────────────► │ TRACKED │ ──────────────► │ SEARCH │
+  └─────────┘                  └─────────┘                  └────────┘
+       ▲                            ▲                            │
+       │        u (unlock)          │     re-acquired / timeout  │
+       └────────────────────────────┴────────────────────────────┘
 ```
 
-## Performance
+- **DETECT** — green corner boxes around all confirmed faces, labelled `#ID`. Click or press a number to lock.
+- **TRACKED** — red corner box + crosshair on the target. Drone commands flow based on target position.
+- **SEARCH** — blinking overlay, panning command output. System tries to re-acquire via face re-ID. Times out after 10 seconds and returns to DETECT.
 
-### Typical Performance Metrics
-- **Apple Silicon Systems**:
-  - 416 × 320 resolution: ~25-30 FPS
-  - 640 × 480 resolution: ~15-20 FPS
+### Tracking Pipeline (per frame)
 
-### Factors Affecting Performance
-1. **Network Stability**: IP stream consistency directly impacts tracking quality
-2. **Camera Stream Quality**: Resolution, compression, and lighting conditions
-3. **Hardware Acceleration**: GPU availability (Apple Silicon MPS, CUDA)
-4. **Scene Complexity**: Number of visible persons affects processing time
-5. **Processing Pipeline**: Threaded design helps maintain responsiveness
+```
+Raw JPEG  →  Haar face detection (every 3rd frame)
+          →  ByteTracker.update()
+               ├─ Kalman predict all active tracks
+               ├─ IoU match detections → active tracks
+               ├─ Unmatched detections → re-ID against lost track gallery
+               └─ Still unmatched → new track (new ID)
+          →  FaceEmbedder.add_embedding()  (LBP histogram stored per ID)
+          →  TargetLockManager.update()    (state transitions)
+          →  DroneCommander.compute()      (directional command)
+          →  Draw + display
+```
 
-### Optimizations Implemented
-- Reduced frame resolution for faster processing
-- Threaded YOLO inference to prevent blocking
-- Camera buffer minimization for lower latency
-- Lightweight YOLOv8n model selection
-- OpenCV optimization flags
-- Efficient histogram comparison algorithms
+### Drone Command Logic
 
-## Limitations
+Commands are derived from the target's position relative to the frame centre:
 
-### Current Constraints
-1. **Appearance-Based ReID Only**: 
-   - Relies solely on HSV histogram comparison
-   - Similar clothing may reduce accuracy
-   - Severe lighting changes can affect re-identification
+| Condition | Command |
+|---|---|
+| Target centre within dead zone (±12% of frame) | `center` |
+| Target left of dead zone | `left` |
+| Target right of dead zone | `right` |
+| Target above dead zone | `forward` (in drone frame) |
+| Target below dead zone | `back` |
+| Target too small (area < 4% of frame) | `forward` |
+| Target too large (area > 25% of frame) | `back` |
+| Search mode | alternating `pan_left` / `pan_right` |
 
-2. **Tracking Challenges**:
-   - Heavy occlusion may temporarily break tracking
-   - Fast camera motion may reduce stability
-   - Very fast-moving targets may exceed tracking capabilities
+Magnitude (0.0–1.0) scales with distance from centre and is printed alongside the direction.
 
-3. **System Dependencies**:
-   - Requires stable IP camera connection
-   - Performance varies significantly with hardware
-   - Initial model download required for YOLOv8
+### Face Re-Identification
 
-### Known Issues
-- No GPU fallback mechanism if MPS/CUDA unavailable
-- Limited to person class detection (COCO class 0)
-- Memory buffer may not capture drastic appearance changes
-- No confidence scoring for re-identification decisions
+Each track stores a rolling gallery of up to 8 LBP (Local Binary Pattern) histogram embeddings. When a detection cannot be matched to any active track by IoU, its histogram is compared (cosine similarity) against the gallery of recently lost tracks. If similarity exceeds the threshold (default 0.72), the track is recovered under its original ID instead of being assigned a new one.
 
-## Future Improvements
+---
 
-### Planned Enhancements
-1. **Advanced Re-Identification Models**:
-   - Integration of OSNet or FastReID for better accuracy
-   - Deep learning-based appearance features
-   - Multi-modal fusion (appearance + motion)
+## ESP32 Firmware Endpoints Expected
 
-2. **System Robustness**:
-   - Improved autonomous drone following capabilities
-   - PTZ camera integration for active tracking
-   - Multi-camera tracking handoff systems
-   - Edge AI deployment optimization
+| Endpoint | Method | Response |
+|---|---|---|
+| `/` | GET | MJPEG stream |
+| `/snapshot` | GET | Single JPEG image |
+| `/telemetry` | GET | JSON: `heap`, `uptime`, `rssi`, `resolution`, `temperature`, `free_psram` |
+| `/led?state=on\|off` | GET | JSON: `{"success": true}` |
+| `/flash?count=N` | GET | JSON: `{"success": true}` |
+| `/res?val=SVGA\|UXGA` | GET | JSON: `{"success": true}` |
 
-3. **Performance Upgrades**:
-   - CUDA acceleration support for NVIDIA GPUs
-   - Kalman filter trajectory prediction
-   - Real-time telemetry overlay systems
-   - Target priority classification algorithms
+---
 
-4. **User Experience**:
-   - Enhanced GUI with configuration options
-   - Recording and playback functionality
-   - Remote control via web interface
-   - Comprehensive logging and analytics
+## Troubleshooting
+
+**Stream not connecting**
+- Confirm the board is on and the IP in `config.py` matches
+- Run `curl http://<IP>/` — if it hangs, the board isn't reachable
+- Check both devices are on the same WiFi subnet
+
+**`TrackerCSRT` not found / import error**
+- You likely have `opencv-python` (no contrib). Uninstall it and reinstall:
+  ```bash
+  pip uninstall opencv-python && pip install opencv-contrib-python
+  ```
+
+**Faces not detected**
+- The ESP32-CAM feed is low-res and low-contrast; press `f` to confirm tracking is on
+- Try moving closer or improving lighting
+- Histogram equalisation is applied automatically to improve detection in dim conditions
+
+**IDs keep changing**
+- This usually means the detection interval (`DETECT_EVERY = 3`) is too high relative to motion speed. Edit `DETECT_EVERY` in `main.py` to `1` for continuous detection at the cost of higher CPU use.
+
+---
+
+## Project Structure (code)
+
+| File | Key classes |
+|---|---|
+| `tracker.py` | `KalmanTrack`, `ByteTracker`, `FaceEmbedder`, `DroneCommander`, `TargetLockManager` |
+| `main.py` | `Viewer`, `ESP32Client`, `StreamBuffer`, `FrameAnalyzer`, `Recorder`, `FPSCounter`, `TelemetryOverlay` |
+| `config.py` | `ESP32_IP` string |
+
+---
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## Acknowledgments
-
-- YOLOv8 by Ultralytics for real-time object detection
-- DeepSORT implementation by nxwojke for multi-object tracking
-- OpenCV community for computer vision tools and algorithms
-- Project Silent Reaper and Skynet-Biogenics initiative for foundational work
-
----
-*Last updated: May 23, 2026*
+MIT — free to use and modify for personal and commercial projects.
