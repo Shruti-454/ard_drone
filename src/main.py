@@ -64,30 +64,7 @@ def id_color(tid: int) -> tuple:
 # Terminal helpers
 # ─────────────────────────────────────────────────────────────────────────────
 
-CONTROLS_TEXT = """
-╔══════════════════════════════════════════════════════════╗
-║           ESP32-S3 DRONE CAMERA  –  CONTROLS            ║
-╠══════════════════════════════════════════════════════════╣
-║  CLICK  on a face in the video window to lock target     ║
-║  0-9    Lock the face labelled #N (shown in frame)       ║
-║  u      Unlock target / return to DETECT mode            ║
-║  f      Toggle face-detection + tracking overlay         ║
-║  z      Toggle QR-code reader                            ║
-║  m      Toggle motion detection                          ║
-║  t      Toggle telemetry overlay                         ║
-║  o      Rotate frame 90° CW                              ║
-║  g      Toggle rule-of-thirds grid                       ║
-║  c      Toggle centre crosshair                          ║
-║  s      Save snapshot                                    ║
-║  r      Toggle video recording                           ║
-║  1/2    Resolution: SVGA / UXGA                          ║
-║  l      Toggle LED  │  L  Flash LED                      ║
-║  q      Quit                                             ║
-╚══════════════════════════════════════════════════════════╝
-"""
-
-def print_controls():
-    print(CONTROLS_TEXT)
+# Controls text removed per user request.
 
 def print_state_banner(state: str, target_id=None, cmd: DroneCommand = None):
     ts = datetime.now().strftime("%H:%M:%S")
@@ -129,8 +106,6 @@ class ESP32Client:
         except Exception as e:
             return {"success": False, "error": str(e)}
 
-    def toggle_led(self, state: str):      return self.send_command(f"/led?state={state}")
-    def flash_led(self, count: int = 5):   return self.send_command(f"/flash?count={count}")
     def set_resolution(self, val: str):    return self.send_command(f"/res?val={val}")
     def get_telemetry(self) -> dict:       return self.send_command("/telemetry")
 
@@ -175,9 +150,7 @@ class FrameAnalyzer:
         self.face_cascade = cv2.CascadeClassifier(
             cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
         )
-        self.qr_detector = cv2.QRCodeDetector()
-        self.prev_gray = None
-        self.motion_threshold = 5000
+        # QR and motion detection removed per user request
 
     def detect_faces_raw(self, frame):
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
@@ -185,28 +158,6 @@ class FrameAnalyzer:
         faces = self.face_cascade.detectMultiScale(gray, 1.15, 4, minSize=(50,50))
         return [tuple(int(v) for v in f) for f in faces] if len(faces) else []
 
-    def read_qr(self, frame):
-        data, _, _ = self.qr_detector.detectAndDecode(frame)
-        return data if data else None
-
-    def detect_motion(self, frame):
-        gray = cv2.GaussianBlur(cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY), (21,21), 0)
-        if self.prev_gray is None:
-            self.prev_gray = gray
-            return False, None
-        delta  = cv2.absdiff(self.prev_gray, gray)
-        thresh = cv2.dilate(cv2.threshold(delta, 25, 255, cv2.THRESH_BINARY)[1], None, iterations=2)
-        self.prev_gray = gray
-        cnts, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        motion = any(cv2.contourArea(c) > self.motion_threshold for c in cnts)
-        return motion, thresh if motion else None
-
-    def draw_motion_contours(self, frame, thresh):
-        cnts, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        for c in cnts:
-            if cv2.contourArea(c) > self.motion_threshold:
-                x, y, w, h = cv2.boundingRect(c)
-                cv2.rectangle(frame, (x,y), (x+w,y+h), ORANGE, 1)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Recorder
@@ -430,14 +381,8 @@ class Viewer:
 
         # State flags
         self.enable_face     = True
-        self.enable_qr       = False
-        self.enable_motion   = False
         self.show_telemetry  = False
-        self.led_on          = False
         self.running         = True
-        self.rotation_angle  = 0
-        self.show_grid       = False
-        self.show_crosshair  = False
 
         # Recording state
         self._rec_start_time = 0.0
@@ -507,7 +452,6 @@ class Viewer:
     # ── Main run ──────────────────────────────────────────────────────────────
 
     def run(self):
-        print_controls()
         self._cap_thread.start()
 
         cv2.namedWindow(self.WINDOW)
@@ -529,13 +473,7 @@ class Viewer:
             fps = self.fps_ctr.update()
             self._frame_idx += 1
 
-            # Rotation
-            if self.rotation_angle == 90:
-                frame = cv2.rotate(frame, cv2.ROTATE_90_CLOCKWISE)
-            elif self.rotation_angle == 180:
-                frame = cv2.rotate(frame, cv2.ROTATE_180)
-            elif self.rotation_angle == 270:
-                frame = cv2.rotate(frame, cv2.ROTATE_90_COUNTERCLOCKWISE)
+            # Rotation feature removed
 
             h_fr, w_fr = frame.shape[:2]
 
@@ -591,41 +529,24 @@ class Viewer:
                 self._flash_tick += 1
                 draw_search_overlay(frame, self._flash_tick)
 
-            if self.enable_qr:
-                qr = self.analyzer.read_qr(frame)
-                if qr:
-                    _text(frame, f"QR: {qr}", 10, h_fr - 14, (255,0,255), 0.55, 2)
+            # QR reading removed
 
-            if self.enable_motion:
-                motion, thresh = self.analyzer.detect_motion(frame)
-                if motion and thresh is not None:
-                    self.analyzer.draw_motion_contours(frame, thresh)
-                    _text(frame, "MOTION!", w_fr-120, 28, ORANGE, 0.6, 2)
+            # Motion detection removed
 
             if self.show_telemetry:
                 self.telemetry.update()
                 self.telemetry.draw(frame)
 
-            if self.show_grid:
-                for i in (1,2):
-                    cv2.line(frame,(w_fr*i//3,0),(w_fr*i//3,h_fr),GREY,1)
-                    cv2.line(frame,(0,h_fr*i//3),(w_fr,h_fr*i//3),GREY,1)
+            # Rule-of-thirds grid removed
 
-            if self.show_crosshair:
-                cx, cy = w_fr//2, h_fr//2
-                cv2.line(frame,(cx-20,cy),(cx+20,cy),WHITE,1)
-                cv2.line(frame,(cx,cy-20),(cx,cy+20),WHITE,1)
-                cv2.circle(frame,(cx,cy),4,WHITE,1)
+            # Centre crosshair removed
 
             # Drone command banner at bottom
             draw_drone_cmd(frame, drone_cmd)
 
             # Top bar (state, fps, badges)
             badges = []
-            if self.rotation_angle:    badges.append(f"ROT:{self.rotation_angle}°")
             if self.enable_face:       badges.append("TRACK")
-            if self.enable_qr:         badges.append("QR")
-            if self.enable_motion:     badges.append("MOTION")
             if self.show_telemetry:    badges.append("TELE")
             if self.recorder.recording: badges.append("●REC")
             draw_top_bar(frame, fps, badges, self.lock_mgr.state)
@@ -683,29 +604,9 @@ class Viewer:
             self.enable_face = not self.enable_face
             print(f"[FACE TRACKING] {'ON' if self.enable_face else 'OFF'}")
 
-        elif key == ord("z"):
-            self.enable_qr = not self.enable_qr
-            print(f"[QR] {'ON' if self.enable_qr else 'OFF'}")
-
-        elif key == ord("m"):
-            self.enable_motion = not self.enable_motion
-            print(f"[MOTION] {'ON' if self.enable_motion else 'OFF'}")
-
         elif key == ord("t"):
             self.show_telemetry = not self.show_telemetry
             print(f"[TELEMETRY] {'ON' if self.show_telemetry else 'OFF'}")
-
-        elif key == ord("o"):
-            self.rotation_angle = (self.rotation_angle + 90) % 360
-            print(f"[ROTATE] {self.rotation_angle}°")
-
-        elif key == ord("g"):
-            self.show_grid = not self.show_grid
-            print(f"[GRID] {'ON' if self.show_grid else 'OFF'}")
-
-        elif key == ord("c"):
-            self.show_crosshair = not self.show_crosshair
-            print(f"[CROSSHAIR] {'ON' if self.show_crosshair else 'OFF'}")
 
         elif key == ord("s"):
             raw = self.client.get_snapshot()
@@ -734,17 +635,9 @@ class Viewer:
             self.client.set_resolution("UXGA")
             print("[RES] UXGA (1600x1200)")
 
-        elif key == ord("l"):
-            self.led_on = not self.led_on
-            self.client.toggle_led("on" if self.led_on else "off")
-            print(f"[LED] {'ON' if self.led_on else 'OFF'}")
+        # LED control removed
 
-        elif key == ord("L"):
-            self.client.flash_led(5)
-            print("[LED] Flash ×5")
-
-        elif key == ord("h"):
-            print_controls()
+        # 'h' key help removed
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Entry point
